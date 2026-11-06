@@ -9,12 +9,23 @@ using static AnoMech.Scenarios.Fru.P3Apocalypse.FruP3ApocalypseState;
 
 namespace AnoMech.Scenarios.Fru.P3Apocalypse;
 
-public sealed class FruP3ApocalypseAi : IScenarioAi<FruP3ApocalypseState>
+public enum FruP3ApocalypseStrat { Na, LpduPermaswap }
+
+public sealed class FruP3ApocalypseAi(FruP3ApocalypseStrat strat) : IScenarioAi<FruP3ApocalypseState>
 {
-    public string Name => "NA priority / static spreads / OT bait";
-    public string Group => "NA";
+    public string Name => strat switch
+    {
+        FruP3ApocalypseStrat.Na => "NA priority / static spreads / OT bait",
+        FruP3ApocalypseStrat.LpduPermaswap => "LPDU permaswap",
+        _ => throw new ArgumentOutOfRangeException(nameof(strat), strat, null),
+    };
+
+    public string Group => strat == FruP3ApocalypseStrat.LpduPermaswap ? "EU" : "NA";
+
+    private bool Permaswap => strat == FruP3ApocalypseStrat.LpduPermaswap;
 
     private const float Scale = 20f / 47.4f;
+    private const float LpduSpiritTakerSpread = 1.4f;
 
     private FruP3ApocalypseState state = null!;
     private SimWorld world = null!;
@@ -26,11 +37,21 @@ public sealed class FruP3ApocalypseAi : IScenarioAi<FruP3ApocalypseState>
         world = worldParam;
         AdjustWaterGroups();
         var ai = new AiManager(world);
-        ai.Move(2.2f, () => ByRole(role => Setup(role, adjusted: false)), arrivalTime: 12.3f);
-        ai.Move(16.9f, () => ByRole(role => Setup(role)), arrivalTime: 20.2f);
-        ai.Move(20.2f, () => ByRole(FirstStack), arrivalTime: WaterAt(1));
-        ai.Move(22.85f, () => ByRole(role => Setup(role, spread: true)), arrivalTime: 24.8f);
-        ai.Move(24.85f, () => ByRole(role => Setup(role, adjusted: false, spread: true)), arrivalTime: 28f);
+        if (Permaswap)
+        {
+            ai.Move(2.2f, () => ByRole(role => LpduBox(role, adjusted: false)), arrivalTime: 12.3f);
+            ai.Move(16.9f, () => ByRole(role => LpduBox(role)), arrivalTime: 20.2f);
+            ai.Move(20.2f, () => ByRole(LpduFirstStack), arrivalTime: WaterAt(1));
+            ai.Move(22.85f, () => ByRole(role => LpduBox(role, spread: LpduSpiritTakerSpread)), arrivalTime: 24.8f);
+        }
+        else
+        {
+            ai.Move(2.2f, () => ByRole(role => NaSquare(role, adjusted: false)), arrivalTime: 12.3f);
+            ai.Move(16.9f, () => ByRole(role => NaSquare(role)), arrivalTime: 20.2f);
+            ai.Move(20.2f, () => ByRole(NaFirstStack), arrivalTime: WaterAt(1));
+            ai.Move(22.85f, () => ByRole(role => NaSquare(role, spread: true)), arrivalTime: 24.8f);
+            ai.Move(24.85f, () => ByRole(role => NaSquare(role, adjusted: false, spread: true)), arrivalTime: 28f);
+        }
         ai.Move(28f, () => ByRole(Spread), arrivalTime: WaveAt(0));
         ai.Move(36.05f, () => ByRole(PostEruption));
         ai.Move(37f, () => ByRole(SecondStack), arrivalTime: WaveAt(3));
@@ -66,7 +87,7 @@ public sealed class FruP3ApocalypseAi : IScenarioAi<FruP3ApocalypseState>
         return new Vector3(x * MathF.Sin(angle) + z * MathF.Cos(angle), 0, -x * MathF.Cos(angle) + z * MathF.Sin(angle)) * Scale;
     }
 
-    private Vector3? Setup(PartyRole role, bool adjusted = true, bool spread = false)
+    private Vector3? NaSquare(PartyRole role, bool adjusted = true, bool spread = false)
     {
         var slot = Slot(role, adjusted);
         var support = slot < 4;
@@ -76,11 +97,31 @@ public sealed class FruP3ApocalypseAi : IScenarioAi<FruP3ApocalypseState>
         return Reference(x, z);
     }
 
-    private Vector3? FirstStack(PartyRole role) => Reference(0, SupportGroup(role) ? -12 : 12);
+    private Vector3? NaFirstStack(PartyRole role) => Reference(0, SupportGroup(role) ? -12 : 12);
+
+    private Vector3? LpduBox(PartyRole role, bool adjusted = true, float spread = 1f)
+    {
+        var slot = Slot(role, adjusted);
+        var side = slot < 4 ? 1 : -1;
+        var (x, z) = (slot % 4) switch
+        {
+            0 => (15.8f, -7.1f),
+            1 => (7.1f, -15.8f),
+            2 => (25f, -16.2f),
+            _ => (16.2f, -25f),
+        };
+        return Reference(x * side, z * side) * spread;
+    }
+
+    private Vector3? LpduFirstStack(PartyRole role)
+    {
+        var side = SupportGroup(role) ? 1 : -1;
+        return Reference(15.3f * side, -15.5f * side);
+    }
 
     private Vector3? Spread(PartyRole role)
     {
-        var slot = Slot(role, adjusted: false);
+        var slot = Slot(role, adjusted: Permaswap);
         var side = slot < 4 ? 1 : -1;
         var (x, z) = (slot % 4) switch
         {
@@ -94,7 +135,7 @@ public sealed class FruP3ApocalypseAi : IScenarioAi<FruP3ApocalypseState>
 
     private Vector3? PostEruption(PartyRole role)
     {
-        var slot = Slot(role, adjusted: false);
+        var slot = Slot(role, adjusted: Permaswap);
         return Reference((slot < 4 ? 1 : -1) * (slot % 4 < 2 ? 10 : 33), 0, SpreadRotation);
     }
 
