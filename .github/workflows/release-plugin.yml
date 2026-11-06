@@ -33,7 +33,6 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   INTERNAL_NAME: AnoMech
   CSPROJ: AnoMech/AnoMech.csproj
-  OUTPUT_DIR: AnoMech/bin/Release/AnoMech
 
 jobs:
   release:
@@ -85,11 +84,21 @@ jobs:
       - name: Run tests
         run: dotnet test --configuration Release --no-build --logger GitHubActions
 
+      - name: Find build output
+        id: output
+        shell: pwsh
+        run: |
+          # The output dir differs by platform (bin/x64/Release on Windows, bin/Release elsewhere).
+          $zip = Get-ChildItem -Path "$env:INTERNAL_NAME/bin" -Recurse -Filter latest.zip |
+            Where-Object { $_.Directory.Name -eq $env:INTERNAL_NAME } | Select-Object -First 1
+          if (-not $zip) { throw "No $env:INTERNAL_NAME/latest.zip under $env:INTERNAL_NAME/bin" }
+          "dir=$($zip.DirectoryName)" >> $env:GITHUB_OUTPUT
+
       - name: Write pluginmaster.json
         shell: pwsh
         run: |
           $download = "https://github.com/${{ github.repository }}/releases/latest/download/latest.zip"
-          $manifest = Get-Content "$env:OUTPUT_DIR/$env:INTERNAL_NAME.json" -Raw | ConvertFrom-Json
+          $manifest = Get-Content "${{ steps.output.outputs.dir }}/$env:INTERNAL_NAME.json" -Raw | ConvertFrom-Json
           $manifest | Add-Member -Force NoteProperty DownloadLinkInstall $download
           $manifest | Add-Member -Force NoteProperty DownloadLinkTesting $download
           $manifest | Add-Member -Force NoteProperty DownloadLinkUpdate $download
@@ -114,7 +123,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v${{ steps.bump.outputs.version }}" "$env:OUTPUT_DIR/latest.zip" `
+          gh release create "v${{ steps.bump.outputs.version }}" "${{ steps.output.outputs.dir }}/latest.zip" `
             --target "${{ steps.commit.outputs.sha }}" `
             --title "v${{ steps.bump.outputs.version }}" `
             --generate-notes `
