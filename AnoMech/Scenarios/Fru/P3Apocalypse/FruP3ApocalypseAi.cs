@@ -26,6 +26,7 @@ public sealed class FruP3ApocalypseAi(FruP3ApocalypseStrat strat) : IScenarioAi<
     private bool Permaswap => strat != FruP3ApocalypseStrat.Na;
 
     private const float Scale = 20f / 47.4f;
+    private const float LpduSpiritTakerSpread = 1.4f;
 
     private FruP3ApocalypseState state = null!;
     private SimWorld world = null!;
@@ -42,7 +43,7 @@ public sealed class FruP3ApocalypseAi(FruP3ApocalypseStrat strat) : IScenarioAi<
             ai.Move(2.2f, () => ByRole(role => LpduBox(role, adjusted: false)), arrivalTime: 12.3f);
             ai.Move(16.9f, () => ByRole(role => LpduBox(role)), arrivalTime: WaterAt(1) - 3f);
             ai.Move(WaterAt(1) - 3f, () => ByRole(LpduFirstStack));
-            ai.Move(22.85f, () => ByRole(role => LpduBox(role)));
+            ai.Move(22.85f, () => ByRole(role => LpduBox(role, spread: LpduSpiritTakerSpread)));
             ai.Move(WaterAt(1) + 3.5f, () => ByRole(Spread));
         }
         else
@@ -100,7 +101,7 @@ public sealed class FruP3ApocalypseAi(FruP3ApocalypseStrat strat) : IScenarioAi<
 
     private Vector3? NaFirstStack(PartyRole role) => Reference(0, SupportGroup(role) ? -12 : 12);
 
-    private Vector3? LpduBox(PartyRole role, bool adjusted = true)
+    private Vector3? LpduBox(PartyRole role, bool adjusted = true, float spread = 1f)
     {
         var slot = Slot(role, adjusted);
         var side = slot < 4 ? 1 : -1;
@@ -111,7 +112,7 @@ public sealed class FruP3ApocalypseAi(FruP3ApocalypseStrat strat) : IScenarioAi<
             2 => (25f, -16.2f),
             _ => (16.2f, -25f),
         };
-        return Reference(x * side, z * side);
+        return Reference(x * side, z * side) * spread;
     }
 
     private Vector3? LpduFirstStack(PartyRole role)
