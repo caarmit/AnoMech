@@ -3,6 +3,8 @@
 
 *Another FFXIV mechanics simulator*
 
+Source: https://github.com/caarmit/AnoMech (fork of [anomek/AnoMech](https://github.com/anomek/AnoMech))
+
 ---
  
 Simulate FFXIV raid mechanics client-side for solo practice. Go to any Inn, open the plugin with `/anomech` and start practicing!
@@ -23,7 +25,23 @@ While simulating:
 
 ## Installation
 
-See: https://github.com/anomek/MyDalamudPlugins
+This fork isn't published to a plugin repository, so you build it from source and load it as a dev plugin:
+
+1. Install the [.NET 10 SDK](https://dotnet.microsoft.com/download) and run the game once through
+   XIVLauncher with Dalamud, so the Dalamud dev files exist.
+2. Clone and build:
+   ```
+   git clone https://github.com/caarmit/AnoMech
+   cd AnoMech
+   dotnet build AnoMech -c Release
+   ```
+3. In game, open `/xlsettings` → Experimental → Dev Plugin Locations, add the full path to
+   `AnoMech/bin/Release/AnoMech.dll`, and save.
+4. Enable AnoMech in `/xlplugins` under Dev Tools → Installed Dev Plugins.
+
+To update, `git pull` and rebuild.
+
+For the original upstream version, see: https://github.com/anomek/MyDalamudPlugins
 
 ## Beta: Advanced Simulation Resolution
 
