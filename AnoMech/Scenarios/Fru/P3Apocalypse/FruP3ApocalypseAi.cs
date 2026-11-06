@@ -9,21 +9,20 @@ using static AnoMech.Scenarios.Fru.P3Apocalypse.FruP3ApocalypseState;
 
 namespace AnoMech.Scenarios.Fru.P3Apocalypse;
 
-public enum FruP3ApocalypseStrat { Na, NaPermaswap, Lpdu }
+public enum FruP3ApocalypseStrat { Na, LpduPermaswap }
 
 public sealed class FruP3ApocalypseAi(FruP3ApocalypseStrat strat) : IScenarioAi<FruP3ApocalypseState>
 {
     public string Name => strat switch
     {
         FruP3ApocalypseStrat.Na => "NA priority / static spreads / OT bait",
-        FruP3ApocalypseStrat.NaPermaswap => "NA priority / static spreads / OT bait / permaswap",
-        FruP3ApocalypseStrat.Lpdu => "LPDU",
+        FruP3ApocalypseStrat.LpduPermaswap => "LPDU permaswap",
         _ => throw new ArgumentOutOfRangeException(nameof(strat), strat, null),
     };
 
-    public string Group => strat == FruP3ApocalypseStrat.Lpdu ? "EU" : "NA";
+    public string Group => strat == FruP3ApocalypseStrat.LpduPermaswap ? "EU" : "NA";
 
-    private bool Permaswap => strat != FruP3ApocalypseStrat.Na;
+    private bool Permaswap => strat == FruP3ApocalypseStrat.LpduPermaswap;
 
     private const float Scale = 20f / 47.4f;
     private const float LpduSpiritTakerSpread = 1.4f;
@@ -38,7 +37,7 @@ public sealed class FruP3ApocalypseAi(FruP3ApocalypseStrat strat) : IScenarioAi<
         world = worldParam;
         AdjustWaterGroups();
         var ai = new AiManager(world);
-        if (strat == FruP3ApocalypseStrat.Lpdu)
+        if (Permaswap)
         {
             ai.Move(2.2f, () => ByRole(role => LpduBox(role, adjusted: false)), arrivalTime: 12.3f);
             ai.Move(16.9f, () => ByRole(role => LpduBox(role)), arrivalTime: WaterAt(1) - 3f);
@@ -52,7 +51,7 @@ public sealed class FruP3ApocalypseAi(FruP3ApocalypseStrat strat) : IScenarioAi<
             ai.Move(16.9f, () => ByRole(role => NaSquare(role)), arrivalTime: 20.2f);
             ai.Move(20.2f, () => ByRole(NaFirstStack), arrivalTime: WaterAt(1));
             ai.Move(22.85f, () => ByRole(role => NaSquare(role, spread: true)), arrivalTime: 24.8f);
-            ai.Move(24.85f, () => ByRole(role => NaSquare(role, adjusted: Permaswap, spread: true)), arrivalTime: 28f);
+            ai.Move(24.85f, () => ByRole(role => NaSquare(role, adjusted: false, spread: true)), arrivalTime: 28f);
         }
         ai.Move(28f, () => ByRole(Spread), arrivalTime: WaveAt(0));
         ai.Move(36.05f, () => ByRole(PostEruption));

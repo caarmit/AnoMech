@@ -20,8 +20,7 @@ public sealed class FruP3ApocalypseScenario : IScenario
     public IReadOnlyList<IScenarioAi> AiStrats =>
     [
         new FruP3ApocalypseAi(FruP3ApocalypseStrat.Na),
-        new FruP3ApocalypseAi(FruP3ApocalypseStrat.NaPermaswap),
-        new FruP3ApocalypseAi(FruP3ApocalypseStrat.Lpdu),
+        new FruP3ApocalypseAi(FruP3ApocalypseStrat.LpduPermaswap),
     ];
 
     public void DrawSettings() => settingsWindow.Draw();
