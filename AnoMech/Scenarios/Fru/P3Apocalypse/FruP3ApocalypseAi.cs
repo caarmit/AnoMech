@@ -39,10 +39,11 @@ public sealed class FruP3ApocalypseAi(FruP3ApocalypseStrat strat) : IScenarioAi<
         var ai = new AiManager(world);
         if (Permaswap)
         {
-            ai.Move(2.2f, () => ByRole(role => LpduBox(role, adjusted: false)), arrivalTime: 12.3f);
-            ai.Move(16.9f, () => ByRole(role => LpduBox(role)), arrivalTime: 20.2f);
-            ai.Move(20.2f, () => ByRole(LpduFirstStack), arrivalTime: WaterAt(1));
-            ai.Move(22.85f, () => ByRole(role => LpduBox(role, spread: LpduSpiritTakerSpread)), arrivalTime: 24.8f);
+            ai.Move(2.2f, () => ByRole(role => LpduBox(role, adjusted: false)));
+            ai.Move(16.9f, () => ByRole(role => LpduBox(role)));
+            ai.Move(WaterAt(1) - 3f, () => ByRole(LpduFirstStack));
+            ai.Move(22.85f, () => ByRole(role => LpduBox(role, spread: LpduSpiritTakerSpread)));
+            ai.Move(WaterAt(1) + 3.5f, () => ByRole(Spread));
         }
         else
         {
