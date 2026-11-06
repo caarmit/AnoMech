@@ -1,6 +1,15 @@
 name: Release plugin
 
+# Builds the plugin, bumps <Version>, publishes latest.zip as a GitHub release and rewrites
+# pluginmaster.json at the repo root, which is the custom plugin repository Dalamud reads.
 on:
+  push:
+    branches: [master]
+    paths-ignore:
+      - '**.md'
+      - 'images/**'
+      - 'pluginmaster.json'
+      - 'AnoMech.Relay.Host/**'
   workflow_dispatch:
     inputs:
       version_bump:
@@ -13,15 +22,100 @@ on:
           - patch
           - revision
 
+concurrency:
+  group: release-plugin
+  cancel-in-progress: false
+
 permissions:
-  contents: write          # lets the reusable workflow create the release + push the bump commit
+  contents: write
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  INTERNAL_NAME: AnoMech
+  CSPROJ: AnoMech/AnoMech.csproj
+  OUTPUT_DIR: AnoMech/bin/Release/AnoMech
 
 jobs:
-  build:
-    uses: anomek/MyDalamudPlugins/.github/workflows/build-plugin.yml@master
-    with:
-      internal_name: AnoMech
-      solution_name: AnoMech
-      version_bump: ${{ inputs.version_bump }}
-    secrets:
-      PAT: ${{ secrets.PAT }}
+  release:
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Install .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Download Dalamud
+        run: |
+          Invoke-WebRequest -Uri https://goatcorp.github.io/dalamud-distrib/latest.zip -OutFile dalamud.zip
+          Expand-Archive -Force dalamud.zip "$env:AppData\XIVLauncher\addon\Hooks\dev"
+
+      - name: Bump version
+        id: bump
+        shell: pwsh
+        run: |
+          # A push releases a revision; a manual run bumps whatever segment was picked.
+          $bump = '${{ inputs.version_bump }}'
+          if ([string]::IsNullOrWhiteSpace($bump)) { $bump = 'revision' }
+          $index = @{ major = 0; minor = 1; patch = 2; revision = 3 }[$bump]
+
+          $content = Get-Content $env:CSPROJ -Raw
+          $rx = '<Version>\s*([0-9]+(?:\.[0-9]+){0,3})\s*</Version>'
+          $match = [regex]::Match($content, $rx)
+          if (-not $match.Success) { throw "No <Version> in $env:CSPROJ" }
+
+          $parts = @($match.Groups[1].Value.Split('.') | ForEach-Object { [int]$_ })
+          while ($parts.Count -lt 4) { $parts += 0 }
+          $parts[$index]++
+          for ($i = $index + 1; $i -lt 4; $i++) { $parts[$i] = 0 }
+          $version = $parts -join '.'
+
+          $content = [regex]::Replace($content, $rx, "<Version>$version</Version>")
+          [System.IO.File]::WriteAllText((Resolve-Path $env:CSPROJ).Path, $content)
+          Write-Host "$($match.Groups[1].Value) -> $version"
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Build
+        run: dotnet build --configuration Release
+
+      - name: Run tests
+        run: dotnet test --configuration Release --no-build --logger GitHubActions
+
+      - name: Write pluginmaster.json
+        shell: pwsh
+        run: |
+          $download = "https://github.com/${{ github.repository }}/releases/latest/download/latest.zip"
+          $manifest = Get-Content "$env:OUTPUT_DIR/$env:INTERNAL_NAME.json" -Raw | ConvertFrom-Json
+          $manifest | Add-Member -Force NoteProperty DownloadLinkInstall $download
+          $manifest | Add-Member -Force NoteProperty DownloadLinkTesting $download
+          $manifest | Add-Member -Force NoteProperty DownloadLinkUpdate $download
+          $manifest | Add-Member -Force NoteProperty IsHide $false
+          $manifest | Add-Member -Force NoteProperty IsTestingExclusive $false
+          $manifest | Add-Member -Force NoteProperty LastUpdate ([string][DateTimeOffset]::UtcNow.ToUnixTimeSeconds())
+          ConvertTo-Json -InputObject @($manifest) -Depth 10 | Set-Content pluginmaster.json -Encoding utf8NoBOM
+
+      - name: Commit version bump and pluginmaster.json
+        id: commit
+        shell: pwsh
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add $env:CSPROJ pluginmaster.json
+          git commit -m "Release $env:INTERNAL_NAME v${{ steps.bump.outputs.version }}"
+          git push origin HEAD
+          "sha=$(git rev-parse HEAD)" >> $env:GITHUB_OUTPUT
+
+      - name: Create release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ steps.bump.outputs.version }}" "$env:OUTPUT_DIR/latest.zip" `
+            --target "${{ steps.commit.outputs.sha }}" `
+            --title "v${{ steps.bump.outputs.version }}" `
+            --generate-notes `
+            --latest

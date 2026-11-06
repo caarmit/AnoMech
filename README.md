@@ -25,23 +25,31 @@ While simulating:
 
 ## Installation
 
-This fork isn't published to a plugin repository, so you build it from source and load it as a dev plugin:
+1. In game, open `/xlsettings` → Experimental → Custom Plugin Repositories.
+2. Add this URL, tick the checkbox, and save:
+   ```
+   https://raw.githubusercontent.com/caarmit/AnoMech/master/pluginmaster.json
+   ```
+3. Install AnoMech from `/xlplugins`.
+
+If you also have the original repo (`anomek/MyDalamudPlugins`) added, remove it first. Both publish a
+plugin with the same internal name.
+
+### Building from source
 
 1. Install the [.NET 10 SDK](https://dotnet.microsoft.com/download) and run the game once through
    XIVLauncher with Dalamud, so the Dalamud dev files exist.
-2. Clone and build:
-   ```
-   git clone https://github.com/caarmit/AnoMech
-   cd AnoMech
-   dotnet build AnoMech -c Release
-   ```
-3. In game, open `/xlsettings` → Experimental → Dev Plugin Locations, add the full path to
-   `AnoMech/bin/Release/AnoMech.dll`, and save.
-4. Enable AnoMech in `/xlplugins` under Dev Tools → Installed Dev Plugins.
-
-To update, `git pull` and rebuild.
+2. `git clone https://github.com/caarmit/AnoMech`, then `dotnet build AnoMech -c Release`.
+3. In `/xlsettings` → Experimental → Dev Plugin Locations, add the full path to
+   `AnoMech/bin/Release/AnoMech.dll`, then enable it in `/xlplugins` under Dev Tools.
 
 For the original upstream version, see: https://github.com/anomek/MyDalamudPlugins
+
+### Releasing
+
+Every push to `master` (other than docs) builds, tests, bumps the revision number, publishes a GitHub
+release with `latest.zip` and updates `pluginmaster.json`. To bump a bigger version segment, run the
+**Release plugin** workflow by hand from the Actions tab.
 
 ## Beta: Advanced Simulation Resolution
 
